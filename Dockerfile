@@ -5,7 +5,7 @@ RUN apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -y \
         cinnamon locales sudo \
         tigervnc-standalone-server tigervnc-common \
-        virtualgl mesa-utils mesa-vulkan-drivers \
+        mesa-utils mesa-vulkan-drivers \
         dbus-x11 xterm wget && \
     locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8
