@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=user
 ENV PASS=1234
 ENV DISPLAY=:1
+ENV PORT=8080
 
 # Install desktop + tools
 RUN apt-get update && apt-get install -y \
@@ -29,21 +30,21 @@ RUN mkdir -p /home/$USER/.vnc && \
     chown -R $USER:$USER /home/$USER/.vnc && \
     chmod 600 /home/$USER/.vnc/passwd
 
-# XFCE startup (more reliable than Cinnamon)
+# XFCE startup
 RUN echo '#!/bin/bash\n\
 xrdb $HOME/.Xresources\n\
 startxfce4 &\n' > /home/$USER/.vnc/xstartup && \
     chmod +x /home/$USER/.vnc/xstartup && \
     chown -R $USER:$USER /home/$USER/.vnc
 
-# Start script
+# Start script (FIXED for Railway)
 RUN echo '#!/bin/bash\n\
+echo "Starting VNC server..."\n\
 vncserver :1 -geometry 1280x800 -depth 24\n\
-/opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 8080 --web /opt/noVNC\n' > /start.sh && \
+echo "Starting noVNC on port $PORT..."\n\
+/opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 0.0.0.0:$PORT --web /opt/noVNC\n' > /start.sh && \
     chmod +x /start.sh
 
 EXPOSE 8080
 
 CMD ["/start.sh"]
-
-#RUNIT
