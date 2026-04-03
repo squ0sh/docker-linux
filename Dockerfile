@@ -1,47 +1,51 @@
-FROM ubuntu:jammy-20230425
+FROM ubuntu:jammy
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USER=user
+ENV PASS=1234
+ENV DISPLAY=:1
+ENV RESOLUTION=1920x1080
 
-RUN apt update && \
-    DEBIAN_FRONTEND=noninteractive apt install -y \
-        cinnamon locales sudo \
-        tigervnc-standalone-server tigervnc-common \
-        mesa-utils mesa-vulkan-drivers \
-        dbus-x11 xterm wget && \
-    locale-gen en_US.UTF-8 && \
-    update-locale LANG=en_US.UTF-8
+# Install everything
+RUN apt-get update && apt-get install -y \
+    cinnamon \
+    tigervnc-standalone-server tigervnc-common \
+    dbus-x11 xterm wget curl git sudo \
+    python3 python3-pip \
+    net-tools \
+    && apt-get clean
+
+# Install noVNC + websockify
+RUN git clone https://github.com/novnc/noVNC.git /opt/noVNC && \
+    git clone https://github.com/novnc/websockify /opt/noVNC/utils/websockify
 
 # Create user
-# Enter the below username and passoword in xrdp login screen
-ARG USER=user
-ARG PASS=1234
-RUN useradd -m $USER -p $(openssl passwd $PASS) && \
-    usermod -aG sudo $USER && \
-    chsh -s /bin/bash $USER
-
-# Environment for Cinnamon
-RUN echo "#!/bin/sh\n\
-export XDG_SESSION_DESKTOP=cinnamon\n\
-export XDG_SESSION_TYPE=x11\n\
-export XDG_CURRENT_DESKTOP=X-Cinnamon\n\
-export LIBGL_ALWAYS_INDIRECT=0\n\
-exec cinnamon-session" > /home/$USER/.xinitrc && \
-    chown $USER:$USER /home/$USER/.xinitrc && chmod +x /home/$USER/.xinitrc
+RUN useradd -m $USER && \
+    echo "$USER:$PASS" | chpasswd && \
+    usermod -aG sudo $USER
 
 # Setup VNC password
 RUN mkdir -p /home/$USER/.vnc && \
     echo $PASS | vncpasswd -f > /home/$USER/.vnc/passwd && \
-    chmod 0600 /home/$USER/.vnc/passwd && \
+    chown -R $USER:$USER /home/$USER/.vnc && \
+    chmod 600 /home/$USER/.vnc/passwd
+
+# Create xstartup
+RUN echo '#!/bin/bash\n\
+export XDG_SESSION_DESKTOP=cinnamon\n\
+export XDG_SESSION_TYPE=x11\n\
+export XDG_CURRENT_DESKTOP=Cinnamon\n\
+export DISPLAY=:1\n\
+dbus-launch cinnamon-session\n' > /home/$USER/.vnc/xstartup && \
+    chmod +x /home/$USER/.vnc/xstartup && \
     chown -R $USER:$USER /home/$USER/.vnc
 
-# Start script
-RUN echo "#!/bin/bash\n\
-export DISPLAY=:1\n\
-Xvnc :1 -geometry 1920x1080 -depth 24 -SecurityTypes VncAuth -rfbport 5901 -localhost no &\n\
-sleep 2\n\
-sudo -u $USER startx &\n\
-tail -f /dev/null" > /start && chmod +x /start
+# Startup script
+RUN echo '#!/bin/bash\n\
+vncserver :1 -geometry 1920x1080 -depth 24\n\
+/opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 8080\n' > /start.sh && \
+    chmod +x /start.sh
 
-EXPOSE 5901
+EXPOSE 8080
 
-CMD ["/start"]
-
+CMD ["/start.sh"]
