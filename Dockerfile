@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y \
     xfce4 xfce4-goodies \
     tigervnc-standalone-server tigervnc-common \
     dbus-x11 xterm wget curl git sudo \
-    python3 python3-pip \
     net-tools \
     && apt-get clean
 
@@ -24,28 +23,23 @@ RUN useradd -m $USER && \
     echo "$USER:$PASS" | chpasswd && \
     usermod -aG sudo $USER
 
-# Setup VNC password
+# Setup VNC + XFCE for user
 RUN mkdir -p /home/$USER/.vnc && \
     echo $PASS | vncpasswd -f > /home/$USER/.vnc/passwd && \
-    chown -R $USER:$USER /home/$USER/.vnc && \
-    chmod 600 /home/$USER/.vnc/passwd
-
-# XFCE startup
-RUN echo '#!/bin/bash\n\
+    chmod 600 /home/$USER/.vnc/passwd && \
+    echo '#!/bin/bash\n\
 xrdb $HOME/.Xresources\n\
 startxfce4 &\n' > /home/$USER/.vnc/xstartup && \
     chmod +x /home/$USER/.vnc/xstartup && \
     chown -R $USER:$USER /home/$USER/.vnc
 
-# Start script (FIXED)
+# Start script (RUN AS USER)
 RUN echo '#!/bin/bash\n\
-echo "Cleaning old VNC sessions..."\n\
-vncserver -kill :1 > /dev/null 2>&1 || true\n\
-rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1\n\
-echo "Starting VNC server..."\n\
-vncserver :1 -geometry 1280x800 -depth 24\n\
-sleep 2\n\
-echo "Starting noVNC on port $PORT..."\n\
+echo "Starting VNC as user..."\n\
+su - user -c "vncserver -kill :1 > /dev/null 2>&1 || true"\n\
+su - user -c "vncserver :1 -geometry 1280x800 -depth 24"\n\
+sleep 3\n\
+echo "Starting noVNC..."\n\
 exec /opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 0.0.0.0:$PORT --web /opt/noVNC\n' > /start.sh && \
     chmod +x /start.sh
 
