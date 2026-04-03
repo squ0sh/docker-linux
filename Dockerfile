@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     && apt-get clean
 
-# Install noVNC + websockify
+# Install noVNC
 RUN git clone https://github.com/novnc/noVNC.git /opt/noVNC && \
     git clone https://github.com/novnc/websockify /opt/noVNC/utils/websockify
 
@@ -37,12 +37,16 @@ startxfce4 &\n' > /home/$USER/.vnc/xstartup && \
     chmod +x /home/$USER/.vnc/xstartup && \
     chown -R $USER:$USER /home/$USER/.vnc
 
-# Start script (FIXED for Railway)
+# Start script (FIXED)
 RUN echo '#!/bin/bash\n\
+echo "Cleaning old VNC sessions..."\n\
+vncserver -kill :1 > /dev/null 2>&1 || true\n\
+rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1\n\
 echo "Starting VNC server..."\n\
 vncserver :1 -geometry 1280x800 -depth 24\n\
+sleep 2\n\
 echo "Starting noVNC on port $PORT..."\n\
-/opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 0.0.0.0:$PORT --web /opt/noVNC\n' > /start.sh && \
+exec /opt/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 0.0.0.0:$PORT --web /opt/noVNC\n' > /start.sh && \
     chmod +x /start.sh
 
 EXPOSE 8080
